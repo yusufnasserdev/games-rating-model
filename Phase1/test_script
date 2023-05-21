@@ -558,11 +558,6 @@ def plot_scores(mse_test, r2_test):
 # Load the test data
 df_test = pd.read_csv(project_dir + 'games-regression-dataset.csv')
 
-# shuffle the data
-df_test = df_test.sample(frac=1, random_state=42).reset_index(drop=True)
-
-df_test = df_test.iloc[0:5, :]
-
 # Preprocess the test data
 df_test = preprocess_pipeline(df_test)
 
