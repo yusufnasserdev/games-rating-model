@@ -19,6 +19,7 @@ mapping = {
     1: 'Intermediate',
     2: 'High'}
 
+
 def run_model(model_name, data):
     if model_name == 'Random Forest':
         model = pickle.load(open(project_dir + 'models/rf.pkl', 'rb'))
@@ -34,6 +35,7 @@ def run_model(model_name, data):
 
     # Map the results to their respective classes
     return mapping[prediction[0]], probability
+
 
 def main():
     # Set the width of the text input widget using CSS styling
@@ -71,7 +73,6 @@ def main():
         prediction = st.empty()
         prob_label = st.write('Probability: ')
         probability = st.empty()
-
 
     # Create button to trigger prediction
     if button:

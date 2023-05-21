@@ -1,5 +1,3 @@
-# Importing the libraries
-import csv
 import pickle
 
 import cv2
@@ -11,21 +9,8 @@ from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 from skimage.feature import local_binary_pattern
 
-nltk.download('stopwords')
-nltk.download('wordnet')
-nltk.download('omw-1.4')
-nltk.download('stopwords')
-nltk.download('punkt')
-nltk.download('wordnet')
-nltk.download('vader_lexicon')
-stop_words = set(stopwords.words('english'))
-
 import nltk
 import re
-
-nltk.download('stopwords')
-nltk.download('wordnet')
-nltk.download('omw-1.4')
 
 from datetime import datetime
 from tqdm import tqdm
@@ -36,11 +21,36 @@ import shutil
 
 import warnings
 
+nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('vader_lexicon')
+stop_words = set(stopwords.words('english'))
+
+
+nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
+
 warnings.filterwarnings('ignore')
 
 # get project directory path
 project_dir = os.path.dirname(os.path.abspath(__file__)) + '/'
 
+def rate_preprocess(_df):
+  # Define mapping dictionary
+  mapping = {
+    'Low': 0, 
+    'Intermediate': 1,
+    'High': 2}
+
+  # Apply mapping to column
+  _df['Rate'] = _df['Rate'].apply(lambda x: mapping[x])
+  
+  return _df
 
 def download_image(url, filename):
     r = requests.get(url, stream=True)
@@ -474,7 +484,6 @@ def icons_preprocess(_df):
 
     return _df
 
-
 def remove_outliers(reviews):
     q1 = np.percentile(reviews, 25)
     q3 = np.percentile(reviews, 75)
@@ -482,7 +491,6 @@ def remove_outliers(reviews):
     lower_bound = q1 - 1.5 * iqr
     upper_bound = q3 + 1.5 * iqr
     return [review for review in reviews if review >= lower_bound and review <= upper_bound]
-
 
 def reviews_preprocess(data):
     # Apply sentiment_analysis
@@ -515,7 +523,8 @@ def reviews_preprocess(data):
 def preprocess_pipeline(_df):
     download_icons(_df)
     _df = download_reviews(_df)
-
+    _df = rate_preprocess(_df)
+    
     _df = _df.drop(['Primary Genre', 'ID', 'URL'], axis=1)
     _df = date_preprocess(_df)
 
@@ -557,17 +566,46 @@ def plot_scores(acc_test):
     # Show the plot
     fig.show()
 
-def scale_data_minmax(_df):
-    cols = _df.columns
+# Load the test data
+df_test = pd.read_csv(project_dir + 'games-classification-dataset.csv')
 
-    scaler = pickle.load(open(project_dir + 'scalers/minmax_scaler.pkl', 'rb'))
-    _df = scaler.transform(_df)
+# Preprocess the test data
+df_test = preprocess_pipeline(df_test)
 
-    _df = pd.DataFrame(_df, columns=cols)
-    return _df
+y = df_test['Rate']
+df_test = df_test.drop(['Rate'], axis=1)
 
-def select_features(_df_x):
-    selector = pickle.load(open(project_dir + 'encoders/selector.pkl', 'rb'))
-    _df_x = selector.transform(_df_x)
+# Scaling
+scaler = pickle.load(open(project_dir + 'scalers/minmax_scaler.pkl', 'rb'))
 
-    return _df_x
+# Get the feature names in the order they appear in the input DataFrame
+feature_names = df_test.columns
+
+# Transform the data using the scaler object
+df_scaled = scaler.transform(df_test)
+df_scaled = pd.DataFrame(df_scaled, columns=feature_names)
+
+# Select the features
+selector = pickle.load(open(project_dir + 'encoders/selector.pkl', 'rb'))
+df_selected = selector.transform(df_scaled)
+
+# Load the model
+cat = pickle.load(open(project_dir + 'models/cat.pkl', 'rb'))
+rf = pickle.load(open(project_dir + 'models/rf.pkl', 'rb'))
+xgb = pickle.load(open(project_dir + 'models/xgb.pkl', 'rb'))
+
+# Make predictions
+pred_cat = cat.predict(df_selected)
+pred_rf = rf.predict(df_selected)
+pred_xgb = xgb.predict(df_selected)
+
+from sklearn.metrics import accuracy_score
+
+plot_scores(accuracy_score(y, pred_cat))
+plot_scores(accuracy_score(y, pred_rf))
+plot_scores(accuracy_score(y, pred_xgb))
+
+# Print the accuracy of the model
+print('Random Forest Accuracy: {:.2f}%'.format(accuracy_score(y, pred_rf) * 100))
+print('XGBoost Accuracy: {:.2f}%'.format(accuracy_score(y, pred_xgb) * 100))
+print('CatBoost Accuracy: {:.2f}%'.format(accuracy_score(y, pred_cat) * 100))
