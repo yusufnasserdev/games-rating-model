@@ -1,4 +1,8 @@
 {
-    "editor.scrollbar.horizontalScrollbarSize": 30,
-    "editor.scrollbar.verticalScrollbarSize": 30
+  "editor.scrollbar.horizontalScrollbarSize": 30,
+  "editor.scrollbar.verticalScrollbarSize": 30,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.autopep8"
+  },
+  "python.formatting.provider": "none"
 }

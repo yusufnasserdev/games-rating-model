@@ -1,3 +1,4 @@
+from sklearn.metrics import accuracy_score
 import pickle
 
 import cv2
@@ -40,17 +41,19 @@ warnings.filterwarnings('ignore')
 # get project directory path
 project_dir = os.path.dirname(os.path.abspath(__file__)) + '/'
 
-def rate_preprocess(_df):
-  # Define mapping dictionary
-  mapping = {
-    'Low': 0, 
-    'Intermediate': 1,
-    'High': 2}
 
-  # Apply mapping to column
-  _df['Rate'] = _df['Rate'].apply(lambda x: mapping[x])
-  
-  return _df
+def rate_preprocess(_df):
+    # Define mapping dictionary
+    mapping = {
+        'Low': 0,
+        'Intermediate': 1,
+        'High': 2}
+
+    # Apply mapping to column
+    _df['Rate'] = _df['Rate'].apply(lambda x: mapping[x])
+
+    return _df
+
 
 def download_image(url, filename):
     r = requests.get(url, stream=True)
@@ -74,13 +77,15 @@ def download_icons(df):
             download_image(row['Icon URL'], f"{project_dir}icons_test/{i}.png")
 
     # Replace the URL with the icon filename which is the index of the row
-    df['Icon URL'] = df.apply(lambda row: f"{project_dir}icons_test/{row.name}.png", axis=1)
+    df['Icon URL'] = df.apply(
+        lambda row: f"{project_dir}icons_test/{row.name}.png", axis=1)
 
 
 def web_scrapping(_df):
     data = pd.DataFrame(columns=["ID", "Reviews"])
     for url in _df['URL']:
-        filename = 'Reviews/' + os.path.basename(url)  # Extract filename from URL
+        # Extract filename from URL
+        filename = 'Reviews/' + os.path.basename(url)
         url += "?see-all=reviews"
         response = requests.get(url)
         if response.status_code == 200:  # Check if request was successful
@@ -115,10 +120,12 @@ def reviews_cleaning(data):
     data['Reviews'] = data['Reviews'].apply(lambda x: re.sub(r'\\n', ' ', x))
 
     # Remove black squares
-    data['Reviews'] = data['Reviews'].apply(lambda x: re.sub(r'\\u25a0', '', x))
+    data['Reviews'] = data['Reviews'].apply(
+        lambda x: re.sub(r'\\u25a0', '', x))
 
     # Remove special characters and punctuations
-    data['Reviews'] = data['Reviews'].apply(lambda x: re.sub(r'[^\w\s]+', '', x))
+    data['Reviews'] = data['Reviews'].apply(
+        lambda x: re.sub(r'[^\w\s]+', '', x))
 
     # Remove numbers
     data['Reviews'] = data['Reviews'].apply(
@@ -142,8 +149,8 @@ def reviews_cleaning(data):
 
 def download_reviews(df):
 
-    web_scrapping(df)
-    
+    # web_scrapping(df)
+
     df_reviews = pd.read_csv(project_dir + 'reviews_test.csv')
 
     df_reviews = reviews_splitting(df_reviews)
@@ -158,16 +165,21 @@ def download_reviews(df):
 
 def date_preprocess(_df):
     # Use dateparse to parse the dates
-    _df['Original Release Date'] = pd.to_datetime(_df['Original Release Date'], format='%d/%m/%Y')
-    _df['Current Version Release Date'] = pd.to_datetime(_df['Current Version Release Date'], format='%d/%m/%Y')
+    _df['Original Release Date'] = pd.to_datetime(
+        _df['Original Release Date'], format='%d/%m/%Y', errors='coerce')
+    _df['Current Version Release Date'] = pd.to_datetime(
+        _df['Current Version Release Date'], format='%d/%m/%Y', errors='coerce')
 
     # Convert the datetime to ordinal
-    _df['Original Release Date'] = _df['Original Release Date'].apply(lambda x: x.toordinal())
-    _df['Current Version Release Date'] = _df['Current Version Release Date'].apply(lambda x: x.toordinal())
+    _df['Original Release Date'] = _df['Original Release Date'].apply(
+        lambda x: x.toordinal() if pd.notnull(x) else np.nan)
+    _df['Current Version Release Date'] = _df['Current Version Release Date'].apply(
+        lambda x: x.toordinal() if pd.notnull(x) else np.nan)
 
     # Impute missing values using simple imputer with median strategy
 
-    simple_imputer = pickle.load(open(project_dir + 'imputers/date_simple.pkl', 'rb'))
+    simple_imputer = pickle.load(
+        open(project_dir + 'imputers/date_simple.pkl', 'rb'))
 
     _df[['Original Release Date', 'Current Version Release Date']] = simple_imputer.transform(
         _df[['Original Release Date', 'Current Version Release Date']])
@@ -176,12 +188,14 @@ def date_preprocess(_df):
     _df['game_age'] = datetime.now().toordinal() - _df['Original Release Date']
 
     # Create a new column with the time since the last update
-    _df['last_update'] = datetime.now().toordinal() - _df['Current Version Release Date']
+    _df['last_update'] = datetime.now().toordinal() - \
+        _df['Current Version Release Date']
 
     # Create a new column with the maintaning period
     _df['maintaning_period'] = _df['game_age'] - _df['last_update']
 
     return _df
+
 
 def dev_preprocess_target_enc(_df):
     # Convert Developer column to string
@@ -201,6 +215,7 @@ def dev_preprocess_target_enc(_df):
 
     return _df
 
+
 def dev_preprocess_freq_enc(_df):
     # Convert to string
     _df['Developer'] = _df['Developer'].astype(str)
@@ -211,10 +226,12 @@ def dev_preprocess_freq_enc(_df):
 
     return _df
 
+
 def genres_preprocess_dummies(_df):
     # Convert the genres column to a list of strings
     _df['Genres'] = _df['Genres'].astype(str)
-    _df['Genres'] = _df['Genres'].str.strip('[]').str.replace("'", "").str.split(", ")
+    _df['Genres'] = _df['Genres'].str.strip(
+        '[]').str.replace("'", "").str.split(", ")
 
     # drop Games, Strategy, Entertainment from the Genres column
     _df['Genres'] = _df['Genres'].apply(
@@ -224,13 +241,16 @@ def genres_preprocess_dummies(_df):
     saved_dummies = pd.read_csv('encoders/genres.csv')
 
     # Get the genres that are not in the saved dummy variables
-    other = [genre for genre in _df['Genres'].explode().unique() if genre not in saved_dummies.columns]
+    other = [genre for genre in _df['Genres'].explode(
+    ).unique() if genre not in saved_dummies.columns]
 
     # Replace the genres that are not in the saved dummy variables with 'infrequent'
-    _df['Genres'] = _df['Genres'].apply(lambda x: ['infrequent' if genre in other else genre for genre in x])
+    _df['Genres'] = _df['Genres'].apply(
+        lambda x: ['infrequent' if genre in other else genre for genre in x])
 
     # Preprocess test data using the saved dummy variables
-    genres = pd.get_dummies(_df['Genres'].apply(pd.Series).stack(), prefix="genre", dummy_na=False).sum(level=0)
+    genres = pd.get_dummies(_df['Genres'].apply(
+        pd.Series).stack(), prefix="genre", dummy_na=False).sum(level=0)
     genres = genres.reindex(columns=saved_dummies.columns, fill_value=0)
 
     # Fill the dummy columns with 0 if nan
@@ -240,32 +260,39 @@ def genres_preprocess_dummies(_df):
     _df = pd.concat([_df, genres], axis=1)
 
     # Fill the NaN values with 0
-    genre_cols = [col for col in _df.columns if col.startswith('genre')]  # get all columns with prefix 'genre'
+    genre_cols = [col for col in _df.columns if col.startswith(
+        'genre')]  # get all columns with prefix 'genre'
     _df[genre_cols] = _df[genre_cols].fillna(0)  # fill the NaN values with 0
 
     return _df
 
+
 def langs_preprocess_dummies(_df):
     # Convert the langs column to a list of strings
     _df['Languages'] = _df['Languages'].astype(str)
-    _df['Languages'] = _df['Languages'].str.strip('[]').str.replace("'", "").str.split(", ")
+    _df['Languages'] = _df['Languages'].str.strip(
+        '[]').str.replace("'", "").str.split(", ")
 
     # Create a column with the number of languages supported
     _df['langs_count'] = _df['Languages'].apply(lambda x: len(x))
 
     # drop English from the Languages column
-    _df['Languages'] = _df['Languages'].apply(lambda x: [lang for lang in x if lang not in ['EN']])
+    _df['Languages'] = _df['Languages'].apply(
+        lambda x: [lang for lang in x if lang not in ['EN']])
 
     saved_dummies = pd.read_csv('encoders/langs.csv')
 
     # Get the languages that are not in the saved dummy variables
-    other = [lang for lang in _df['Languages'].explode().unique() if lang not in saved_dummies.columns]
+    other = [lang for lang in _df['Languages'].explode(
+    ).unique() if lang not in saved_dummies.columns]
 
     # Replace the languages that are not in the saved dummy variables with 'infrequent'
-    _df['Languages'] = _df['Languages'].apply(lambda x: ['infrequent' if lang in other else lang for lang in x])
+    _df['Languages'] = _df['Languages'].apply(
+        lambda x: ['infrequent' if lang in other else lang for lang in x])
 
     # Preprocess test data using the saved dummy variables
-    langs = pd.get_dummies(_df['Languages'].apply(pd.Series).stack(), prefix="lang", dummy_na=False).sum(level=0)
+    langs = pd.get_dummies(_df['Languages'].apply(
+        pd.Series).stack(), prefix="lang", dummy_na=False).sum(level=0)
     langs = langs.reindex(columns=saved_dummies.columns, fill_value=0)
 
     # Fill the dummy columns with 0 if nan
@@ -275,32 +302,41 @@ def langs_preprocess_dummies(_df):
     _df = pd.concat([_df, langs], axis=1)
 
     # Fill NaN with 0
-    lang_cols = [col for col in _df.columns if col.startswith('lang')]  # get all columns with prefix 'lang'
-    _df[lang_cols] = _df[lang_cols].fillna(0)  # fill NaN with 0 for selected columns
+    lang_cols = [col for col in _df.columns if col.startswith(
+        'lang')]  # get all columns with prefix 'lang'
+    # fill NaN with 0 for selected columns
+    _df[lang_cols] = _df[lang_cols].fillna(0)
 
     return _df
+
 
 def purchases_preprocess(_df):
     # Convert the In-app Purchases column to a list of floats
     _df['In-app Purchases'] = _df['In-app Purchases'].astype(str)
-    _df['In-app Purchases'] = _df['In-app Purchases'].str.strip('[]').str.replace("'", "").str.split(", ")
+    _df['In-app Purchases'] = _df['In-app Purchases'].str.strip(
+        '[]').str.replace("'", "").str.split(", ")
 
     # Convert to float
-    _df['In-app Purchases'] = _df['In-app Purchases'].apply(lambda x: [float(i) for i in x])
+    _df['In-app Purchases'] = _df['In-app Purchases'].apply(
+        lambda x: [float(i) for i in x])
 
     # Get the number of in-app purchases
     _df['purchases_count'] = _df['In-app Purchases'].apply(lambda x: len(x))
 
     # Get the lowest, highest and average purchase
-    _df['lowest_purchase'] = _df['In-app Purchases'].apply(lambda x: min(x) if len(x) > 0 else 0)
-    _df['highest_purchase'] = _df['In-app Purchases'].apply(lambda x: max(x) if len(x) > 0 else 0)
-    _df['average_purchase'] = _df['In-app Purchases'].apply(lambda x: np.mean(x) if len(x) > 0 else 0)
+    _df['lowest_purchase'] = _df['In-app Purchases'].apply(
+        lambda x: min(x) if len(x) > 0 else 0)
+    _df['highest_purchase'] = _df['In-app Purchases'].apply(
+        lambda x: max(x) if len(x) > 0 else 0)
+    _df['average_purchase'] = _df['In-app Purchases'].apply(
+        lambda x: np.mean(x) if len(x) > 0 else 0)
 
     _df['lowest_purchase'] = _df['lowest_purchase'].fillna(0)
     _df['highest_purchase'] = _df['highest_purchase'].fillna(0)
     _df['average_purchase'] = _df['average_purchase'].fillna(0)
 
     return _df
+
 
 def age_preprocess(_df):
     # Convert to string
@@ -313,10 +349,12 @@ def age_preprocess(_df):
     _df['Age Rating'] = _df['Age Rating'].astype(float)
 
     # Impute missing values using simple imputer with median strategy
-    simple_imputer = pickle.load(open(project_dir + 'imputers/age_simple.pkl', 'rb'))
+    simple_imputer = pickle.load(
+        open(project_dir + 'imputers/age_simple.pkl', 'rb'))
 
     _df['Age Rating'] = simple_imputer.transform(_df[['Age Rating']])
     return _df
+
 
 def price_preprocess(_df):
     # Convert to float
@@ -327,6 +365,7 @@ def price_preprocess(_df):
 
     return _df
 
+
 def compute_excitement_score(text, _sia):
     # compute the polarity scores for the given text
     scores = _sia.polarity_scores(text)
@@ -336,6 +375,7 @@ def compute_excitement_score(text, _sia):
 
     return excitement_score
 
+
 def compute_attractive_score(text, tokenizer):
     # define a list of keywords that might make a game attractive to users
     attractive_keywords = ['graphics', 'gameplay', 'storyline', 'characters']
@@ -343,12 +383,15 @@ def compute_attractive_score(text, tokenizer):
     # tokenize the text into words and count how many attractive keywords appear
     words = tokenizer(text.lower())
 
-    num_attractive_keywords = len([word for word in words if word in attractive_keywords])
+    num_attractive_keywords = len(
+        [word for word in words if word in attractive_keywords])
 
     # compute the attractive score as the ratio of attractive keywords to total words
-    attractive_score = num_attractive_keywords / len(words) if len(words) > 0 else 0
+    attractive_score = num_attractive_keywords / \
+        len(words) if len(words) > 0 else 0
 
     return attractive_score
+
 
 def desc_preprocess(_df):
     _df['Description'] = _df['Description'].astype(str)
@@ -357,10 +400,13 @@ def desc_preprocess(_df):
     _df['desc_word_count'] = _df['Description'].apply(lambda x: len(x.split()))
 
     sia_desc = pickle.load(open(project_dir + 'encoders/sia_desc.pkl', 'rb'))
-    tokenizer = pickle.load(open(project_dir + 'encoders/desc_tokenizer.pkl', 'rb'))
+    tokenizer = pickle.load(
+        open(project_dir + 'encoders/desc_tokenizer.pkl', 'rb'))
 
-    _df['excitement_score'] = _df['Description'].apply(lambda x: compute_excitement_score(x, sia_desc))
-    _df['attractive_score'] = _df['Description'].apply(lambda x: compute_attractive_score(x, tokenizer))
+    _df['excitement_score'] = _df['Description'].apply(
+        lambda x: compute_excitement_score(x, sia_desc))
+    _df['attractive_score'] = _df['Description'].apply(
+        lambda x: compute_attractive_score(x, tokenizer))
 
     return _df
 
@@ -369,11 +415,13 @@ def name_preprocess(_df):
     _df['Name'] = _df['Name'].astype(str)
 
     # Create column for number of words in subtitle
-    _df['name_word_count'] = _df['Name'].apply(lambda x: len(str(x).split(" ")))
+    _df['name_word_count'] = _df['Name'].apply(
+        lambda x: len(str(x).split(" ")))
 
     sia_name = pickle.load(open(project_dir + 'encoders/sia_name.pkl', 'rb'))
 
-    _df['name_sia'] = _df['Name'].apply(lambda x: compute_excitement_score(x, sia_name))
+    _df['name_sia'] = _df['Name'].apply(
+        lambda x: compute_excitement_score(x, sia_name))
 
     return _df
 
@@ -382,11 +430,13 @@ def sub_preprocess(_df):
     _df['Subtitle'] = _df['Subtitle'].astype(str)
 
     # Create column for number of words in subtitle
-    _df['sub_word_count'] = _df['Subtitle'].apply(lambda x: len(str(x).split(" ")))
+    _df['sub_word_count'] = _df['Subtitle'].apply(
+        lambda x: len(str(x).split(" ")))
 
     sia_sub = pickle.load(open(project_dir + 'encoders/sia_sub.pkl', 'rb'))
 
-    _df['sub_sia'] = _df['Subtitle'].apply(lambda x: compute_excitement_score(x, sia_sub))
+    _df['sub_sia'] = _df['Subtitle'].apply(
+        lambda x: compute_excitement_score(x, sia_sub))
 
     return _df
 
@@ -416,7 +466,8 @@ def detect_objects(image_path):
     _, thresh = cv2.threshold(edges, 0, 255, cv2.THRESH_BINARY_INV)
 
     # Find contours in the binary image
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(
+        thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     # Return the number of objects detected
     return len(contours)
@@ -438,7 +489,8 @@ def preprocess_icon(img_path):
     # Extract shape features using local binary patterns
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     lbp = local_binary_pattern(gray, 8, 1, method='uniform')
-    hist_lbp, _ = np.histogram(lbp.ravel(), bins=np.arange(0, 10), range=(0, 9))
+    hist_lbp, _ = np.histogram(
+        lbp.ravel(), bins=np.arange(0, 10), range=(0, 9))
     edge_features = hist_lbp.astype(float)
 
     # Combine the color and shape features into a single feature vector
@@ -484,6 +536,7 @@ def icons_preprocess(_df):
 
     return _df
 
+
 def remove_outliers(reviews):
     q1 = np.percentile(reviews, 25)
     q3 = np.percentile(reviews, 75)
@@ -492,10 +545,12 @@ def remove_outliers(reviews):
     upper_bound = q3 + 1.5 * iqr
     return [review for review in reviews if review >= lower_bound and review <= upper_bound]
 
+
 def reviews_preprocess(data):
     # Apply sentiment_analysis
 
-    sia_reviews = pickle.load(open(project_dir + 'encoders/sia_reviews.pkl', 'rb'))
+    sia_reviews = pickle.load(
+        open(project_dir + 'encoders/sia_reviews.pkl', 'rb'))
 
     # Only preprocess the reviews that are not null
     data['Reviews'] = data['Reviews'].apply(
@@ -503,16 +558,22 @@ def reviews_preprocess(data):
             x) > 0 else [])
 
     # Get the lowest, highest and average Reviews
-    data['lowest_review'] = data['Reviews'].apply(lambda x: min(x) if len(x) > 0 else None)
-    data['highest_review'] = data['Reviews'].apply(lambda x: max(x) if len(x) > 0 else None)
+    data['lowest_review'] = data['Reviews'].apply(
+        lambda x: min(x) if len(x) > 0 else None)
+    data['highest_review'] = data['Reviews'].apply(
+        lambda x: max(x) if len(x) > 0 else None)
 
     # Calculate the average review without the outliers via z-score
-    data['average_review'] = data['Reviews'].apply(lambda x: np.mean(remove_outliers(x)) if len(x) > 0 else None)
+    data['average_review'] = data['Reviews'].apply(
+        lambda x: np.mean(remove_outliers(x)) if len(x) > 0 else None)
 
     # Impute missing values using KNN
-    knn_low = pickle.load(open(project_dir + 'imputers/review_low_knn.pkl', 'rb'))
-    knn_high = pickle.load(open(project_dir + 'imputers/review_high_knn.pkl', 'rb'))
-    knn_avg = pickle.load(open(project_dir + 'imputers/review_avg_knn.pkl', 'rb'))
+    knn_low = pickle.load(
+        open(project_dir + 'imputers/review_low_knn.pkl', 'rb'))
+    knn_high = pickle.load(
+        open(project_dir + 'imputers/review_high_knn.pkl', 'rb'))
+    knn_avg = pickle.load(
+        open(project_dir + 'imputers/review_avg_knn.pkl', 'rb'))
 
     data['lowest_review'] = knn_low.transform(data[['lowest_review']])
     data['highest_review'] = knn_high.transform(data[['highest_review']])
@@ -520,11 +581,12 @@ def reviews_preprocess(data):
 
     return data
 
+
 def preprocess_pipeline(_df):
     download_icons(_df)
     _df = download_reviews(_df)
     _df = rate_preprocess(_df)
-    
+
     _df = _df.drop(['Primary Genre', 'ID', 'URL'], axis=1)
     _df = date_preprocess(_df)
 
@@ -554,20 +616,24 @@ def preprocess_pipeline(_df):
 
     return _df
 
+
 def plot_scores(acc_test):
     # Create a bar plot of the scores with colors based on the value
     fig = go.Figure(data=[
-        go.Bar(name='Test Accuracy', x=['Accuracy'], y=[acc_test], marker_color='blue'),
+        go.Bar(name='Test Accuracy', x=['Accuracy'], y=[
+               acc_test], marker_color='blue'),
     ])
 
     # Add labels and title
-    fig.update_layout(title='Model Performance', xaxis_title='Score Type', yaxis_title='Score')
+    fig.update_layout(title='Model Performance',
+                      xaxis_title='Score Type', yaxis_title='Score')
 
     # Show the plot
     fig.show()
 
+
 # Load the test data
-df_test = pd.read_csv(project_dir + 'games-classification-dataset.csv')
+df_test = pd.read_csv(project_dir + 'ms2-games-tas-test-v1.csv')
 
 # Preprocess the test data
 df_test = preprocess_pipeline(df_test)
@@ -575,6 +641,7 @@ df_test = preprocess_pipeline(df_test)
 y = df_test['Rate']
 df_test = df_test.drop(['Rate'], axis=1)
 
+df_test = df_test.fillna(0)
 # Scaling
 scaler = pickle.load(open(project_dir + 'scalers/minmax_scaler.pkl', 'rb'))
 
@@ -599,13 +666,14 @@ pred_cat = cat.predict(df_selected)
 pred_rf = rf.predict(df_selected)
 pred_xgb = xgb.predict(df_selected)
 
-from sklearn.metrics import accuracy_score
+print('Predicted Samples: ' + str(len(pred_cat)))
 
 plot_scores(accuracy_score(y, pred_cat))
 plot_scores(accuracy_score(y, pred_rf))
 plot_scores(accuracy_score(y, pred_xgb))
 
 # Print the accuracy of the model
-print('Random Forest Accuracy: {:.2f}%'.format(accuracy_score(y, pred_rf) * 100))
+print('Random Forest Accuracy: {:.2f}%'.format(
+    accuracy_score(y, pred_rf) * 100))
 print('XGBoost Accuracy: {:.2f}%'.format(accuracy_score(y, pred_xgb) * 100))
 print('CatBoost Accuracy: {:.2f}%'.format(accuracy_score(y, pred_cat) * 100))
