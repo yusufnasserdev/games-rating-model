@@ -504,14 +504,6 @@ def icons_preprocess(_df):
 
     return _df
 
-def remove_outliers(reviews):
-    q1 = np.percentile(reviews, 25)
-    q3 = np.percentile(reviews, 75)
-    iqr = q3 - q1
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
-    return [review for review in reviews if review >= lower_bound and review <= upper_bound]
-
 def reviews_preprocess(data):
     # Apply sentiment_analysis
 
@@ -531,7 +523,7 @@ def reviews_preprocess(data):
 
     # Calculate the average review without the outliers via z-score
     data['average_review'] = data['Reviews'].apply(
-        lambda x: np.mean(remove_outliers(x)) if len(x) > 0 else None)
+        lambda x: np.mean(x) if len(x) > 0 else None)
 
     # Impute missing values using KNN
     knn_low = pickle.load(
@@ -629,43 +621,23 @@ def test_pipeline(_df):
     
     return _dfx, _dfy
 
-def plot_scores(acc_test):
-    # Create a bar plot of the scores with colors based on the value
-    fig = go.Figure(data=[
-        go.Bar(name='Test Accuracy', x=['Accuracy'], y=[
-               acc_test], marker_color='blue'),
-    ])
-
-    # Add labels and title
-    fig.update_layout(title='Model Performance',
-                      xaxis_title='Score Type', yaxis_title='Score')
-
-    # Show the plot
-    fig.show()
-
-
 # Load the test data
 df_test = pd.read_csv(project_dir + 'datasets/test/ms2-games-tas-test-v1.csv')
 
 # Preprocess the test data
 X, y = test_pipeline(df_test)
 
-# Load the model
-cat = pickle.load(open(project_dir + 'models/classification/cat.pkl', 'rb'))
-rf = pickle.load(open(project_dir + 'models/classification/rf.pkl', 'rb'))
-xgb = pickle.load(open(project_dir + 'models/classification/xgb.pkl', 'rb'))
-xgb_cv = pickle.load(open(project_dir + 'models/classification/xgb_cv.pkl', 'rb'))
+# get all the models in models/classification folder and make predictions
+for model_name in os.listdir(project_dir + 'models/classification/'):
+    try:
+        print(model_name, end=' Accuracy: ')
+        # Load the model
+        model = pickle.load(open(project_dir + 'models/classification/' + model_name, 'rb'))
 
-# Make predictions
-pred_cat = cat.predict(X)
-pred_rf = rf.predict(X)
-pred_xgb = xgb.predict(X)
-pred_xgb_cv = xgb_cv.predict(X)
+        # Make predictions
+        pred = model.predict(X)
 
-print('Predicted Samples: ', len(pred_cat))
-
-# Print the accuracy of the model
-print('Random Forest Accuracy: {:.2f}%'.format(accuracy_score(y, pred_rf) * 100))
-print('XGBoost Accuracy: {:.2f}%'.format(accuracy_score(y, pred_xgb) * 100))
-print('CatBoost Accuracy: {:.2f}%'.format(accuracy_score(y, pred_cat) * 100))
-print('XGBoost CV Accuracy: {:.2f}%'.format(accuracy_score(y, pred_xgb_cv) * 100))
+        # Print the accuracy of the model
+        print('{:.2f}%'.format(accuracy_score(y, pred) * 100))
+    except:
+        print('Error with model: {}'.format(model_name))
