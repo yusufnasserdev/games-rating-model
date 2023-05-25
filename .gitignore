@@ -131,3 +131,6 @@ dmypy.json
 # Icons folder
 icons/
 icons_test/
+
+# catboost training cache
+catboost_info/
