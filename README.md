@@ -36,13 +36,14 @@ The dataset used for this project can be found in the repository [here](Model/da
 ## Results
 ### Regression Metrics
 
-| Model | Train MSE | Test MSE | Train R2 | Test R2 |
-| --- | --- | --- | --- | --- |
-| SVR | --- | 66.31% | --- | --- |
-| RandomForest CV | --- | 65.85% | --- | --- |
-| LinearRegression | --- | 65.23% | --- | --- |
-| RandomForest | --- | 64.62% | --- | --- |
-| CatBoost | --- | 63.38% | --- | --- |
+| Model | Train MSE | Val MSE | Test MSE | Train R2 | Val R2 | Test R2 | 
+| --- | --- | --- | --- | --- | --- | --- |
+| XGBoost | 0.1964 | 0.3246 | 0.4603 | 0.54 | 0.28 | 0.14 |
+| GradientBoosting | 0.1766 | 0.3242 | 0.4610 | 0.58 | 0.28 | 0.14 |
+| PolynomialRegression | 0.2630 | 0.3245 | 0.4643 | 0.38 | 0.28 | 0.13 |
+| ElasticNet | 0.2805 | 0.3429 | 0.4709 | 0.34 | 0.24 | 0.12 |
+| Linear Regression | 0.2805 | 0.3428 | 0.4711 | 0.34 | 0.24 | 0.12 |
+| CatBoost | 0.1873 | 0.3201 | 0.4685 | 0.56 | 0.29 | 0.12 |
 
 
 ### Classification Metrics
