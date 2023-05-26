@@ -639,5 +639,7 @@ for model_name in os.listdir(project_dir + 'models/classification/'):
 
         # Print the accuracy of the model
         print('{:.2f}%'.format(accuracy_score(y, pred) * 100))
-    except:
+        
+    except Exception as e:
         print('Error with model: {}'.format(model_name))
+        print(e)

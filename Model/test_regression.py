@@ -22,19 +22,7 @@ import shutil
 
 import warnings
 
-nltk.download('stopwords')
-nltk.download('wordnet')
-nltk.download('omw-1.4')
-nltk.download('stopwords')
-nltk.download('punkt')
-nltk.download('wordnet')
-nltk.download('vader_lexicon')
 stop_words = set(stopwords.words('english'))
-
-
-nltk.download('stopwords')
-nltk.download('wordnet')
-nltk.download('omw-1.4')
 
 warnings.filterwarnings('ignore')
 
@@ -49,46 +37,45 @@ def download_image(url, filename):
             r.raw.decode_content = True
             shutil.copyfileobj(r.raw, f)
 
-
 def download_icons(df):
     # Convert to string
     df['Icon URL'] = df['Icon URL'].astype(str)
 
     # Create a folder to store the images
-    if not os.path.exists(f"{project_dir}icons_test"):
-        os.makedirs(f"{project_dir}icons_test")
+    if not os.path.exists(f"{project_dir}icons/test"):
+        os.makedirs(f"{project_dir}icons/test")
 
     # Download the images
     for i, row in tqdm(df.iterrows(), total=df.shape[0]):
-        if not os.path.exists(f"{project_dir}icons_test/{i}.png"):
-            download_image(row['Icon URL'], f"{project_dir}icons_test/{i}.png")
+        if not os.path.exists(f"{project_dir}icons/test/{i}.png"):
+            download_image(row['Icon URL'], f"{project_dir}icons/test/{i}.png")
 
     # Replace the URL with the icon filename which is the index of the row
     df['Icon URL'] = df.apply(
-        lambda row: f"{project_dir}icons_test/{row.name}.png", axis=1)
-
+        lambda row: f"{project_dir}icons/test/{row.name}.png", axis=1)
 
 def web_scrapping(_df):
     data = pd.DataFrame(columns=["ID", "Reviews"])
-    for url in _df['URL']:
-        # Extract filename from URL
-        filename = 'Reviews/' + os.path.basename(url)
+    
+    for url, id_value in zip(_df['URL'], _df['ID']):
+        # Redirect to the reviews page
         url += "?see-all=reviews"
         response = requests.get(url)
-        if response.status_code == 200:  # Check if request was successful
+        
+        # Check if request was successful
+        if response.status_code == 200:  
             soup = BeautifulSoup(response.text, 'html.parser')
             blocks = soup.findAll("blockquote")
             review_list = []
             for blockquote in blocks:
                 review = blockquote.find('p').text
                 review_list.append(review)
+                
             if len(review_list) != 0:
-                filename = re.sub(r'[^\d]+', '', filename)
-                new_row = {'ID': filename, "Reviews": review_list}
+                new_row = {'ID': id_value, "Reviews": review_list}
                 data = data.append(new_row, ignore_index=True)
-
-    data.to_csv(project_dir + 'reviews_test.csv', index=False)
-
+    
+    data.to_csv('datasets/test/reviews.csv', index=False)
 
 def reviews_splitting(data):
     for i in range(len(data)):
@@ -97,7 +84,6 @@ def reviews_splitting(data):
 
     data = data.explode('Reviews')
     return data
-
 
 def reviews_cleaning(data):
     # Convert text to lowercase
@@ -133,25 +119,20 @@ def reviews_cleaning(data):
 
     return data
 
-
 def download_reviews(df):
 
     # web_scrapping(df)
 
-    print('1')
-    df_reviews = pd.read_csv(project_dir + 'reviews_test.csv')
+    df_reviews = pd.read_csv(project_dir + 'datasets/test/reviews.csv')
 
     df_reviews = reviews_splitting(df_reviews)
 
     df_reviews = reviews_cleaning(df_reviews)
-    print('2')
+
     # Merge The Sentiment with the original dataset
     df = df.merge(df_reviews, on='ID', how='left')
 
-    print('done Reviews')
-
     return df
-
 
 def date_preprocess(_df):
     # Use dateparse to parse the dates
@@ -169,7 +150,7 @@ def date_preprocess(_df):
     # Impute missing values using simple imputer with median strategy
 
     simple_imputer = pickle.load(
-        open(project_dir + 'imputers/date_simple.pkl', 'rb'))
+        open(project_dir + 'imputers/regression/date_simple.pkl', 'rb'))
 
     _df[['Original Release Date', 'Current Version Release Date']] = simple_imputer.transform(
         _df[['Original Release Date', 'Current Version Release Date']])
@@ -186,7 +167,6 @@ def date_preprocess(_df):
 
     return _df
 
-
 def dev_preprocess_target_enc(_df):
     # Convert Developer column to string
     _df['Developer'] = _df['Developer'].astype(str)
@@ -194,28 +174,26 @@ def dev_preprocess_target_enc(_df):
 
     # Perform target encoding on Developer column
 
-    te = pickle.load(open(project_dir + 'encoders/dev_te.pkl', 'rb'))
+    te = pickle.load(open(project_dir + 'encoders/regression/dev_te.pkl', 'rb'))
     _df['dev_avg'] = te.transform(_df[['Developer']])
 
     # Impute missing values using KNN
-    knn = pickle.load(open(project_dir + 'imputers/dev_knn.pkl', 'rb'))
+    knn = pickle.load(open(project_dir + 'imputers/regression/dev_knn.pkl', 'rb'))
 
     _df['dev_avg'] = knn.transform(_df[['dev_avg']])
     _df['dev_avg'] = _df['dev_avg'].astype(float)
 
     return _df
 
-
 def dev_preprocess_freq_enc(_df):
     # Convert to string
     _df['Developer'] = _df['Developer'].astype(str)
     _df['Developer'] = _df['Developer'].str.replace("'", "").str.strip('[]')
 
-    ce = pickle.load(open(project_dir + 'encoders/dev_ce.pkl', 'rb'))
+    ce = pickle.load(open(project_dir + 'encoders/regression/dev_ce.pkl', 'rb'))
     _df['dev_freq'] = ce.transform(_df[['Developer']])['Developer']
 
     return _df
-
 
 def genres_preprocess_dummies(_df):
     # Convert the genres column to a list of strings
@@ -228,7 +206,7 @@ def genres_preprocess_dummies(_df):
         lambda x: [genre for genre in x if genre not in ['Games', 'Strategy', 'Entertainment']])
 
     # Load saved genres dummy variables
-    saved_dummies = pd.read_csv('encoders/genres.csv')
+    saved_dummies = pd.read_csv(project_dir + 'encoders/regression/genres.csv')
 
     # Get the genres that are not in the saved dummy variables
     other = [genre for genre in _df['Genres'].explode(
@@ -256,7 +234,6 @@ def genres_preprocess_dummies(_df):
 
     return _df
 
-
 def langs_preprocess_dummies(_df):
     # Convert the langs column to a list of strings
     _df['Languages'] = _df['Languages'].astype(str)
@@ -270,7 +247,7 @@ def langs_preprocess_dummies(_df):
     _df['Languages'] = _df['Languages'].apply(
         lambda x: [lang for lang in x if lang not in ['EN']])
 
-    saved_dummies = pd.read_csv('encoders/langs.csv')
+    saved_dummies = pd.read_csv(project_dir + 'encoders/regression/langs.csv')
 
     # Get the languages that are not in the saved dummy variables
     other = [lang for lang in _df['Languages'].explode(
@@ -299,7 +276,6 @@ def langs_preprocess_dummies(_df):
 
     return _df
 
-
 def purchases_preprocess(_df):
     # Convert the In-app Purchases column to a list of floats
     _df['In-app Purchases'] = _df['In-app Purchases'].astype(str)
@@ -327,7 +303,6 @@ def purchases_preprocess(_df):
 
     return _df
 
-
 def age_preprocess(_df):
     # Convert to string
     _df['Age Rating'] = _df['Age Rating'].astype(str)
@@ -340,11 +315,10 @@ def age_preprocess(_df):
 
     # Impute missing values using simple imputer with median strategy
     simple_imputer = pickle.load(
-        open(project_dir + 'imputers/age_simple.pkl', 'rb'))
+        open(project_dir + 'imputers/regression/age_simple.pkl', 'rb'))
 
     _df['Age Rating'] = simple_imputer.transform(_df[['Age Rating']])
     return _df
-
 
 def price_preprocess(_df):
     # Convert to float
@@ -355,7 +329,6 @@ def price_preprocess(_df):
 
     return _df
 
-
 def compute_excitement_score(text, _sia):
     # compute the polarity scores for the given text
     scores = _sia.polarity_scores(text)
@@ -364,7 +337,6 @@ def compute_excitement_score(text, _sia):
     excitement_score = scores['pos'] + abs(scores['neg'])
 
     return excitement_score
-
 
 def compute_attractive_score(text, tokenizer):
     # define a list of keywords that might make a game attractive to users
@@ -382,16 +354,15 @@ def compute_attractive_score(text, tokenizer):
 
     return attractive_score
 
-
 def desc_preprocess(_df):
     _df['Description'] = _df['Description'].astype(str)
 
     # Create column for number of words in description
     _df['desc_word_count'] = _df['Description'].apply(lambda x: len(x.split()))
 
-    sia_desc = pickle.load(open(project_dir + 'encoders/sia_desc.pkl', 'rb'))
+    sia_desc = pickle.load(open(project_dir + 'encoders/regression/sia_desc.pkl', 'rb'))
     tokenizer = pickle.load(
-        open(project_dir + 'encoders/desc_tokenizer.pkl', 'rb'))
+        open(project_dir + 'encoders/regression/desc_tokenizer.pkl', 'rb'))
 
     _df['excitement_score'] = _df['Description'].apply(
         lambda x: compute_excitement_score(x, sia_desc))
@@ -400,7 +371,6 @@ def desc_preprocess(_df):
 
     return _df
 
-
 def name_preprocess(_df):
     _df['Name'] = _df['Name'].astype(str)
 
@@ -408,13 +378,12 @@ def name_preprocess(_df):
     _df['name_word_count'] = _df['Name'].apply(
         lambda x: len(str(x).split(" ")))
 
-    sia_name = pickle.load(open(project_dir + 'encoders/sia_name.pkl', 'rb'))
+    sia_name = pickle.load(open(project_dir + 'encoders/regression/sia_name.pkl', 'rb'))
 
     _df['name_sia'] = _df['Name'].apply(
         lambda x: compute_excitement_score(x, sia_name))
 
     return _df
-
 
 def sub_preprocess(_df):
     _df['Subtitle'] = _df['Subtitle'].astype(str)
@@ -423,13 +392,12 @@ def sub_preprocess(_df):
     _df['sub_word_count'] = _df['Subtitle'].apply(
         lambda x: len(str(x).split(" ")))
 
-    sia_sub = pickle.load(open(project_dir + 'encoders/sia_sub.pkl', 'rb'))
+    sia_sub = pickle.load(open(project_dir + 'encoders/regression/sia_sub.pkl', 'rb'))
 
     _df['sub_sia'] = _df['Subtitle'].apply(
         lambda x: compute_excitement_score(x, sia_sub))
 
     return _df
-
 
 def detect_objects(image_path):
     """
@@ -462,7 +430,6 @@ def detect_objects(image_path):
     # Return the number of objects detected
     return len(contours)
 
-
 def preprocess_icon(img_path):
     # Load the game icon image
     img = cv2.imread(img_path)
@@ -491,7 +458,6 @@ def preprocess_icon(img_path):
 
     return normalized_feature_vector
 
-
 def icons_preprocess(_df):
     # Create a list to store the feature vectors
     icon_features = []
@@ -505,7 +471,7 @@ def icons_preprocess(_df):
         feature_vec = preprocess_icon(row['Icon URL'])
         icon_features.append((row['Icon URL'], feature_vec))
 
-    pca = pickle.load(open(project_dir + 'encoders/icon_pca.pkl', 'rb'))
+    pca = pickle.load(open(project_dir + 'encoders/regression/icon_pca.pkl', 'rb'))
 
     reduced_features = pca.transform([f[1] for f in icon_features])
 
@@ -526,21 +492,11 @@ def icons_preprocess(_df):
 
     return _df
 
-
-def remove_outliers(reviews):
-    q1 = np.percentile(reviews, 25)
-    q3 = np.percentile(reviews, 75)
-    iqr = q3 - q1
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
-    return [review for review in reviews if review >= lower_bound and review <= upper_bound]
-
-
 def reviews_preprocess(data):
     # Apply sentiment_analysis
 
     sia_reviews = pickle.load(
-        open(project_dir + 'encoders/sia_reviews.pkl', 'rb'))
+        open(project_dir + 'encoders/regression/sia_reviews.pkl', 'rb'))
 
     # Only preprocess the reviews that are not null
     data['Reviews'] = data['Reviews'].apply(
@@ -555,15 +511,15 @@ def reviews_preprocess(data):
 
     # Calculate the average review without the outliers via z-score
     data['average_review'] = data['Reviews'].apply(
-        lambda x: np.mean(remove_outliers(x)) if len(x) > 0 else None)
+        lambda x: np.mean(x) if len(x) > 0 else None)
 
     # Impute missing values using KNN
     knn_low = pickle.load(
-        open(project_dir + 'imputers/review_low_knn.pkl', 'rb'))
+        open(project_dir + 'imputers/regression/review_low_knn.pkl', 'rb'))
     knn_high = pickle.load(
-        open(project_dir + 'imputers/review_high_knn.pkl', 'rb'))
+        open(project_dir + 'imputers/regression/review_high_knn.pkl', 'rb'))
     knn_avg = pickle.load(
-        open(project_dir + 'imputers/review_avg_knn.pkl', 'rb'))
+        open(project_dir + 'imputers/regression/review_avg_knn.pkl', 'rb'))
 
     data['lowest_review'] = knn_low.transform(data[['lowest_review']])
     data['highest_review'] = knn_high.transform(data[['highest_review']])
@@ -571,118 +527,128 @@ def reviews_preprocess(data):
 
     return data
 
+def size_preprocess(_df):
+    # Convert to float
+    _df['Size'] = _df['Size'].astype(float)
+    
+    # Impute missing values using KNN
+    knn = pickle.load(open(project_dir + 'imputers/regression/size_knn.pkl', 'rb'))
 
-def preprocess_pipeline(_df):
-    download_icons(_df)
+    _df['Size'] = knn.transform(_df[['Size']])
+    return _df
+
+def user_count_preprocess(_df):
+    # Convert to float
+    _df['User Rating Count'] = _df['User Rating Count'].astype(float)
+    
+    # Impute missing values using KNN
+    knn = pickle.load(open(project_dir + 'imputers/regression/user_count_knn.pkl', 'rb'))
+
+    _df['User Rating Count'] = knn.transform(_df[['User Rating Count']])
+    
+    return _df
+
+def test_pipeline(_df):
+    # _df = download_icons(_df)
     _df = download_reviews(_df)
-
+    
     _df = _df.drop(['Primary Genre', 'ID', 'URL'], axis=1)
+    
     _df = date_preprocess(_df)
-
     _df = purchases_preprocess(_df)
-    _df = _df.drop(['Languages', 'Genres', 'In-app Purchases'], axis=1)
 
     _df = age_preprocess(_df)
     _df = price_preprocess(_df)
-
+    
     _df = name_preprocess(_df)
     _df = sub_preprocess(_df)
     _df = desc_preprocess(_df)
-    _df = _df.drop(['Name', 'Subtitle', 'Description'], axis=1)
-
+    # _df = icons_preprocess(_df, test)
+    
+    _df = _df.drop(['Name',
+                    'Subtitle',
+                    'Description',
+                    'Icon URL',
+                    'Languages',
+                    'Genres',
+                    'In-app Purchases',
+                    'Original Release Date',
+                    'Current Version Release Date'], axis=1)
+    
+    # Dropping all the columns that are already preprocessed as they are not needed anymore 
+    # But more importantly for KNN imputation to work
+    
+    _df = size_preprocess(_df)
+    _df = user_count_preprocess(_df)
+    
     _df = dev_preprocess_freq_enc(_df)
     _df = dev_preprocess_target_enc(_df)
-    _df = icons_preprocess(_df)
-
-    _df = _df.drop(['Developer', 'Icon URL'], axis=1)
-
+    
+    _df = _df.drop(['Developer'], axis=1)
+    
     _df = reviews_preprocess(_df)
     _df = _df.drop(['Reviews'], axis=1)
 
-    # Columns needed for the testing phase but nor for the prediction model anymore
-    _df = _df.drop(['Original Release Date',
-                    'Current Version Release Date'], axis=1)
+    _dfy = _df['Average User Rating']
+    _dfx = _df.drop(['Average User Rating'], axis=1)
 
-    return _df
+    # Scaling
+    scaler = pickle.load(open(project_dir + 'scalers/regression/std_scaler.pkl', 'rb'))
 
+    # Get the feature names in the order they appear in the input DataFrame
+    feature_names = _dfx.columns
 
-def plot_scores(mse_test, r2_test):
+    # Transform the data using the scaler object
+    _dfx = scaler.transform(_dfx)
+    _dfx = pd.DataFrame(_dfx, columns=feature_names)
 
-    # Create a bar plot of the scores with colors based on the value
-    fig = go.Figure(data=[
-        go.Bar(name='MSE Test', x=['MSE'], y=[mse_test], marker_color='blue'),
-        go.Bar(name='R2 Test', x=['R2'], y=[r2_test], marker_color='pink'),
-    ])
-
-    # Add labels and title
-    fig.update_layout(title='Model Performance',
-                      xaxis_title='Score Type', yaxis_title='Score')
-
-    # Show the plot
-    fig.show()
-
+    # Select the features
+    selector = pickle.load(open(project_dir + 'encoders/regression/selector.pkl', 'rb'))
+    _dfx = selector.transform(_dfx)
+    
+    return _dfx, _dfy
 
 # Load the test data
-df_test = pd.read_csv(project_dir + 'ms1-games-tas-test-v1.csv')
+df_test = pd.read_csv(project_dir + 'datasets/test/ms1-games-tas-test-v1.csv')
 
 # Preprocess the test data
-df_test = preprocess_pipeline(df_test)
+X, y = test_pipeline(df_test)
 
-df_old = pd.read_csv(project_dir + 'preprocessed_data.csv')
-df_test = df_test.reindex(columns=df_old.columns)
+# Model name mapping
+model_name_mapping = {
+    'lr.pkl': 'Linear Regression',
+    'elastic_net.pkl': 'Elastic Net Regression',
+    'poly_reg.pkl': 'Polynomial Regression',
+    'svr.pkl': 'Support Vector Regression',
+    'rf.pkl': 'Random Forest Regression',
+    'gb.pkl': 'Gradient Boosting Regression',
+    'xgb.pkl': 'XGBoost Regression',
+    'cb.pkl': 'CatBoost Regression'
+}
 
-y = df_test['Average User Rating']
-df_test = df_test.drop(['Average User Rating'], axis=1)
 
-df_test = df_test.fillna(0)
+# get all the models in models/regression folder and make predictions
+for model_name in os.listdir(project_dir + 'models/regression/'):
+    try:
+        print(model_name_mapping[model_name], end=' MSE: ')
+        # Load the model
+        model = pickle.load(open(project_dir + 'models/regression/' + model_name, 'rb'))
+        
+        if model_name == 'poly_reg.pkl':
+            poly_feat = pickle.load(open(project_dir + 'encoders/regression/poly.pkl', 'rb'))
+            Xt = poly_feat.transform(X)
+        else:
+            Xt = X
 
-# Scaling
-scaler = pickle.load(open(project_dir + 'scalers/minmax_scaler.pkl', 'rb'))
+        # Make predictions
+        pred = model.predict(Xt)
+        
+        # Print the MSE, R2 of the model
+        print('{:.4f}'.format(mean_squared_error(y, pred)), end=' R2: ')
+        print('{:.2f}'.format(r2_score(y, pred)))
+        print()
 
-# Get the feature names in the order they appear in the input DataFrame
-feature_names = df_test.columns
+    except Exception as e:
+        print('Error with model: {}'.format(model_name))
+        print(e)
 
-# Transform the data using the scaler object
-df_scaled = scaler.transform(df_test)
-df_scaled = pd.DataFrame(df_scaled, columns=feature_names)
-
-# Select the features
-selector = pickle.load(open(project_dir + 'encoders/selector.pkl', 'rb'))
-df_selected = selector.transform(df_scaled)
-
-# Load the model
-cat = pickle.load(open(project_dir + 'models/CatBoost_model.pkl', 'rb'))
-rf = pickle.load(open(project_dir + 'models/RandomForest_model.pkl', 'rb'))
-xgb = pickle.load(open(project_dir + 'models/XGBoost_model.pkl', 'rb'))
-
-# Make predictions
-pred_cat = cat.predict(df_selected)
-pred_rf = rf.predict(df_selected)
-pred_xgb = xgb.predict(df_selected)
-
-print('Predicted Samples: ' + str(len(pred_cat)))
-
-# Calculate the MSE and R2 scores
-mse_cat = mean_squared_error(y, pred_cat)
-r2_cat = r2_score(y, pred_cat)
-
-mse_rf = mean_squared_error(y, pred_rf)
-r2_rf = r2_score(y, pred_rf)
-
-mse_xgb = mean_squared_error(y, pred_xgb)
-r2_xgb = r2_score(y, pred_xgb)
-
-# Plot the scores
-plot_scores(mse_cat, r2_cat)
-plot_scores(mse_rf, r2_rf)
-plot_scores(mse_xgb, r2_xgb)
-
-# Print the scores
-print('CatBoost MSE: ', mse_cat)
-print('CatBoost R2: ', r2_cat)
-
-print('Random Forest MSE: ', mse_rf)
-print('Random Forest R2: ', r2_rf)
-
-print('XGBoost MSE: ', mse_xgb)
-print('XGBoost R2: ', r2_xgb)
