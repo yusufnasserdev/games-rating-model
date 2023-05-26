@@ -7,9 +7,7 @@ This project is a machine learning model that predicts the user rating of a game
 ## Dataset
 The dataset used for this project is a portion of a Kaggle dataset. The dataset is provided by the FCIS ML Team as a part of the FCIS ML course project. The dataset contains 5,214 games and their features.
 
-The original dataset can be found [here](https://www.kaggle.com/tristan581/17k-apple-app-store-strategy-games).
-
-The dataset used for this project can be found in the repository [here](Model/datasets/train/games-regression-dataset.csv) for regression and [here](Model/datasets/train/games-classification-dataset.csv) for classification.
+The dataset used for this project can be found in the repository [here](Model/datasets/train/games-regression-dataset.csv) for regression and [here](Model/datasets/train/games-classification-dataset.csv) for classification. The original dataset can be found [here](https://www.kaggle.com/tristan581/17k-apple-app-store-strategy-games).
 
 ## Features
 
@@ -32,18 +30,21 @@ The dataset used for this project can be found in the repository [here](Model/da
 - Rate: The rating of the game (Target for classification)
 - Average User Rating: The average user rating of the game (Target for regression)
 
+## Project Report
+The project report can be found [here](Model/docs/report.pdf). The report contains how the project was developed, what were our approaches,
+what features were used, how did we preprocess the data, the algorithms used, the results, and the conclusion.
 
 ## Results
 ### Regression Metrics
 
 | Model | Train MSE | Val MSE | Test MSE | Train R2 | Val R2 | Test R2 | 
 | --- | --- | --- | --- | --- | --- | --- |
-| XGBoost | 0.1964 | 0.3246 | 0.4603 | 0.54 | 0.28 | 0.14 |
-| GradientBoosting | 0.1766 | 0.3242 | 0.4610 | 0.58 | 0.28 | 0.14 |
-| PolynomialRegression | 0.2630 | 0.3245 | 0.4643 | 0.38 | 0.28 | 0.13 |
-| ElasticNet | 0.2805 | 0.3429 | 0.4709 | 0.34 | 0.24 | 0.12 |
-| Linear Regression | 0.2805 | 0.3428 | 0.4711 | 0.34 | 0.24 | 0.12 |
-| CatBoost | 0.1873 | 0.3201 | 0.4685 | 0.56 | 0.29 | 0.12 |
+| XGBoost 			    | 0.1876 | 0.3264 | 0.4539 | 0.56 | 0.27 | 0.15 |
+| GradientBoosting 	    | 0.1634 | 0.3209 | 0.4530 | 0.61 | 0.28 | 0.15 |
+| PolynomialRegression 	| 0.2546 | 0.3384 | 0.4611 | 0.40 | 0.25 | 0.13 |
+| ElasticNet 		    | 0.2805 | 0.3439 | 0.4641 | 0.34 | 0.23 | 0.13 |
+| Linear Regression 	| 0.2795 | 0.3439 | 0.4644 | 0.34 | 0.23 | 0.13 |
+| CatBoost 			    | 0.1644 | 0.3133 | 0.4675 | 0.61 | 0.30 | 0.12 |
 
 
 ### Classification Metrics

@@ -2,40 +2,13 @@ import pandas as pd
 import pickle
 import streamlit as st
 import os
-from preprocessing import preprocess_pipeline
+from preprocessing import run_model
 
 import warnings
 
 warnings.filterwarnings('ignore')
 
-# get project directory path
-project_dir = os.path.dirname(os.path.abspath(__file__)) + '/'
-
 model_names = ['Random Forest', 'XGBoost']
-
-# Define mapping dictionary
-mapping = {
-    0: 'Low',
-    1: 'Intermediate',
-    2: 'High'}
-
-
-def run_model(model_name, data):
-    if model_name == 'Random Forest':
-        model = pickle.load(open(project_dir + 'models/rf.pkl', 'rb'))
-    elif model_name == 'XGBoost':
-        model = pickle.load(open(project_dir + 'models/xgb.pkl', 'rb'))
-    else:
-        raise ValueError(f'Invalid model name: {model_name}')
-
-    # Predict the class and the probability
-    prediction = model.predict(data)
-    probability = model.predict_proba(data)
-    probability = probability[0][prediction[0]]
-
-    # Map the results to their respective classes
-    return mapping[prediction[0]], probability
-
 
 def main():
     # Set the width of the text input widget using CSS styling
@@ -90,26 +63,8 @@ def main():
         # append the user data as a new row to the DataFrame
         df = df.append(pd.DataFrame(user_data, columns=df.columns), ignore_index=True)
 
-        df = preprocess_pipeline(df)
-
-        scaler = pickle.load(open(project_dir + 'scalers/minmax_scaler.pkl', 'rb'))
-
-        # df_scaled = pd.DataFrame(df_scaled, columns=df.columns)
-
-        # Get the feature names in the order they appear in the input DataFrame
-        feature_names = df.columns
-
-        # Transform the data using the scaler object
-        df_scaled = scaler.transform(df)
-
-        # Create a new DataFrame with the scaled data and the original feature names
-        df_scaled = pd.DataFrame(df_scaled, columns=feature_names)
-
-        selector = pickle.load(open(project_dir + 'encoders/selector.pkl', 'rb'))
-        df_selected = selector.transform(df_scaled)
-
         # Predict results
-        result, prob = run_model(models_box, df_selected)
+        result, prob = run_model(models_box, df)
 
         # make probability percentage to 2 decimal places
         prob = round(prob * 100, 2)
