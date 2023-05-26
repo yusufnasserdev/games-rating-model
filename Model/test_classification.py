@@ -406,8 +406,7 @@ def sub_preprocess(_df):
 
     sia_sub = pickle.load(open(project_dir + 'encoders/classification/sia_sub.pkl', 'rb'))
 
-    _df['sub_sia'] = _df['Subtitle'].apply(
-        lambda x: compute_excitement_score(x, sia_sub))
+    # _df['sub_sia'] = _df['Subtitle'].apply(lambda x: compute_excitement_score(x, sia_sub))
 
     return _df
 
@@ -543,10 +542,13 @@ def size_preprocess(_df):
     # Convert to float
     _df['Size'] = _df['Size'].astype(float)
     
+    # Apply log transformation using the natural logarithm function (log base e)
+    _df['size_log'] = np.log(_df['Size'] / 1000000)
+    
     # Impute missing values using KNN
-    knn = pickle.load(open(project_dir + 'imputers/classification/size_knn.pkl', 'rb'))
+    knn = pickle.load(open(project_dir + 'imputers/regression/size_knn.pkl', 'rb'))
 
-    _df['Size'] = knn.transform(_df[['Size']])
+    _df['size_log'] = knn.transform(_df[['size_log']])
     return _df
 
 def user_count_preprocess(_df):
@@ -592,6 +594,7 @@ def test_pipeline(_df):
     # But more importantly for KNN imputation to work
     
     _df = size_preprocess(_df)
+    _df = _df.drop(['Size'], axis=1)
     _df = user_count_preprocess(_df)
     
     _df = dev_preprocess_freq_enc(_df)
@@ -627,10 +630,21 @@ df_test = pd.read_csv(project_dir + 'datasets/test/ms2-games-tas-test-v1.csv')
 # Preprocess the test data
 X, y = test_pipeline(df_test)
 
+# Model name mapping
+model_name_mapping = {
+    'lr.pkl': 'LogisticRegression',
+    'svc.pkl': 'Support Vector Classification',
+    'rf.pkl': 'Random Forest Classification',
+    'rf_cv.pkl': 'Random Forest CV Classification',
+    'rf_hyper.pkl': 'Random Forest HPT Classification',
+    'xgb.pkl': 'XGBoost Regression',
+    'cat.pkl': 'CatBoost Regression'
+}
+
 # get all the models in models/classification folder and make predictions
 for model_name in os.listdir(project_dir + 'models/classification/'):
     try:
-        print(model_name, end=' Accuracy: ')
+        print(model_name_mapping[model_name], end=' Accuracy: ')
         # Load the model
         model = pickle.load(open(project_dir + 'models/classification/' + model_name, 'rb'))
 
@@ -639,6 +653,7 @@ for model_name in os.listdir(project_dir + 'models/classification/'):
 
         # Print the accuracy of the model
         print('{:.2f}%'.format(accuracy_score(y, pred) * 100))
+        print()
         
     except Exception as e:
         print('Error with model: {}'.format(model_name))

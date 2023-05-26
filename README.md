@@ -59,7 +59,7 @@ The dataset used for this project can be found in the repository [here](Model/da
 [GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
 
 ## Acknowledgements
-- [FCIS ML Team](fcismlteam@cis.asu.edu.eg): Provided the dataset (Originally a portion from a Kaggle dataset) and the guidance while developing the project. 
+- [FCIS ML Team](mailto:fcismlteam@cis.asu.edu.eg): Provided the dataset (Originally a portion from a Kaggle dataset) and the guidance while developing the project. 
 
 ## Team
 - [Yusuf Nasser](https://github.com/yusufnasserdev)

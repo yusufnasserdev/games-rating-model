@@ -394,8 +394,7 @@ def sub_preprocess(_df):
 
     sia_sub = pickle.load(open(project_dir + 'encoders/regression/sia_sub.pkl', 'rb'))
 
-    _df['sub_sia'] = _df['Subtitle'].apply(
-        lambda x: compute_excitement_score(x, sia_sub))
+    # _df['sub_sia'] = _df['Subtitle'].apply(lambda x: compute_excitement_score(x, sia_sub))
 
     return _df
 
@@ -531,10 +530,13 @@ def size_preprocess(_df):
     # Convert to float
     _df['Size'] = _df['Size'].astype(float)
     
+    # Apply log transformation using the natural logarithm function (log base e)
+    _df['size_log'] = np.log(_df['Size'] / 1000000)
+    
     # Impute missing values using KNN
     knn = pickle.load(open(project_dir + 'imputers/regression/size_knn.pkl', 'rb'))
 
-    _df['Size'] = knn.transform(_df[['Size']])
+    _df['size_log'] = knn.transform(_df[['size_log']])
     return _df
 
 def user_count_preprocess(_df):
@@ -579,6 +581,8 @@ def test_pipeline(_df):
     # But more importantly for KNN imputation to work
     
     _df = size_preprocess(_df)
+    _df = _df.drop(['Size'], axis=1)
+    
     _df = user_count_preprocess(_df)
     
     _df = dev_preprocess_freq_enc(_df)
